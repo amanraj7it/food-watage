@@ -91,9 +91,23 @@ def send_raw_socket_email(to_email, subject, body_text, smtp_server, smtp_port, 
 @app.route('/api/send-otp', methods=['POST'])
 def send_otp():
     data = request.get_json() or {}
-    email = data.get('email')
+    email = data.get('email', '').strip()
+    mode = data.get('mode')
     if not email:
         return jsonify({"error": "Email required"}), 400
+
+    db = load_db()
+    existing_user = next((u for u in db['users'] if u.get('email', '').strip().lower() == email.lower()), None)
+    if mode == 'register' and existing_user:
+        return jsonify({
+            "ok": False,
+            "error": f"Email is already registered as a {existing_user.get('role', 'user').upper()}. Each email is linked to one role. Please log in."
+        }), 400
+    if mode == 'forgot' and not existing_user:
+        return jsonify({
+            "ok": False,
+            "error": "No account found with this email address. Please register first."
+        }), 404
 
     otp_code = str(random.randint(1000, 9999))
     otps[email] = otp_code
@@ -126,11 +140,11 @@ def send_otp():
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
-    email = data.get('email')
+    email = data.get('email', '').strip()
     password = data.get('password')
     
     db = load_db()
-    user = next((u for u in db['users'] if u.get('email') == email and u.get('password') == password), None)
+    user = next((u for u in db['users'] if u.get('email', '').strip().lower() == email.lower() and u.get('password') == password), None)
 
     if user:
         if user.get('status') == 'banned':
@@ -147,7 +161,7 @@ def generate_id():
 @app.route('/api/verify-otp', methods=['POST'])
 def verify_otp():
     data = request.get_json() or {}
-    email = data.get('email')
+    email = data.get('email', '').strip()
     code = data.get('code')
     name = data.get('name')
     password = data.get('password')
@@ -160,21 +174,26 @@ def verify_otp():
         del otps[email]
 
         db = load_db()
-        user = next((u for u in db['users'] if u.get('email') == email), None)
+        existing_user = next((u for u in db['users'] if u.get('email', '').strip().lower() == email.lower()), None)
         
-        if not user:
-            import datetime
-            user = {
-                "id": generate_id(),
-                "name": name,
-                "email": email,
-                "password": password,
-                "role": role,
-                "status": "active",
-                "createdAt": datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.000Z')
-            }
-            db['users'].append(user)
-            save_db(db)
+        if existing_user:
+            return jsonify({
+                "success": False,
+                "message": f"Email already registered as {existing_user.get('role', 'user').upper()}. Please log in."
+            }), 400
+
+        import datetime
+        user = {
+            "id": generate_id(),
+            "name": name,
+            "email": email,
+            "password": password,
+            "role": role or 'donor',
+            "status": "active",
+            "createdAt": datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        }
+        db['users'].append(user)
+        save_db(db)
 
         return jsonify({"success": True, "user": user})
     

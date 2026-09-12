@@ -31,18 +31,34 @@ export default function VolunteerPage({ user, donations = [], onSaveDonations, i
     useEffect(() => {
         if (!user) {
             const s = localStorage.getItem('hl_session');
-            if (s) {
-                try {
-                    const parsed = JSON.parse(s);
-                    setCurrentUser(parsed);
-                } catch (e) { }
-            } else {
-                setCurrentUser({
-                    id: 'vol_demo_1',
-                    name: 'Alex Rivera',
-                    email: 'alex.courier@harvest.eco',
-                    role: 'volunteer'
-                });
+            if (!s) {
+                window.location.href = '/login';
+                return;
+            }
+            try {
+                const parsed = JSON.parse(s);
+                if (parsed.role && parsed.role !== 'volunteer' && parsed.role !== 'admin') {
+                    window.location.href = '/dashboard';
+                    return;
+                }
+                fetch('/api/users')
+                    .then(r => r.json())
+                    .then(d => {
+                        const allUsers = JSON.parse(d.value || '[]');
+                        const found = allUsers.find(u => u.id === parsed.userId);
+                        if (found) {
+                            if (found.role !== 'volunteer' && found.role !== 'admin') {
+                                window.location.href = '/dashboard';
+                                return;
+                            }
+                            setCurrentUser(found);
+                        } else {
+                            window.location.href = '/login';
+                        }
+                    })
+                    .catch(() => { window.location.href = '/login'; });
+            } catch (e) {
+                window.location.href = '/login';
             }
         } else {
             setCurrentUser(user);

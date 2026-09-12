@@ -89,7 +89,7 @@ export default function Login() {
             });
             const data = await res.json();
             if (data.success) {
-                localStorage.setItem('hl_session', JSON.stringify({ userId: data.user.id }));
+                localStorage.setItem('hl_session', JSON.stringify({ userId: data.user.id, role: data.user.role }));
                 navigate('/dashboard');
                 window.location.reload();
             } else {
@@ -108,7 +108,7 @@ export default function Login() {
             const res = await fetch('/api/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ email, mode })
             });
             const data = await res.json();
             if (data.ok) {
@@ -134,7 +134,7 @@ export default function Login() {
             });
             const data = await res.json();
             if (data.success) {
-                localStorage.setItem('hl_session', JSON.stringify({ userId: data.user.id }));
+                localStorage.setItem('hl_session', JSON.stringify({ userId: data.user.id, role: data.user.role }));
                 navigate('/dashboard');
                 window.location.reload();
             } else {

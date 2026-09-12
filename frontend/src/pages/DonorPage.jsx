@@ -39,19 +39,34 @@ export default function DonorPage({ user, donations = [], onSaveDonations, isEmb
     useEffect(() => {
         if (!user) {
             const s = localStorage.getItem('hl_session');
-            if (s) {
-                try {
-                    const parsed = JSON.parse(s);
-                    setCurrentUser(parsed);
-                } catch (e) { }
-            } else {
-                // Default donor profile for instant demo/test viewing
-                setCurrentUser({
-                    id: 'donor_demo_1',
-                    name: 'Green Harvest Bistro',
-                    email: 'bistro@harvest.eco',
-                    role: 'donor'
-                });
+            if (!s) {
+                window.location.href = '/login';
+                return;
+            }
+            try {
+                const parsed = JSON.parse(s);
+                if (parsed.role && parsed.role !== 'donor' && parsed.role !== 'admin') {
+                    window.location.href = '/dashboard';
+                    return;
+                }
+                fetch('/api/users')
+                    .then(r => r.json())
+                    .then(d => {
+                        const allUsers = JSON.parse(d.value || '[]');
+                        const found = allUsers.find(u => u.id === parsed.userId);
+                        if (found) {
+                            if (found.role !== 'donor' && found.role !== 'admin') {
+                                window.location.href = '/dashboard';
+                                return;
+                            }
+                            setCurrentUser(found);
+                        } else {
+                            window.location.href = '/login';
+                        }
+                    })
+                    .catch(() => { window.location.href = '/login'; });
+            } catch (e) {
+                window.location.href = '/login';
             }
         } else {
             setCurrentUser(user);

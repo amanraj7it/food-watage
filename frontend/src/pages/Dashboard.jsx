@@ -18,7 +18,6 @@ export default function Dashboard() {
     const [donations, setDonations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [previewRole, setPreviewRole] = useState(null);
 
     // New donation form state
     const [foodType, setFoodType] = useState('Cooked Food Packets');
@@ -80,6 +79,11 @@ export default function Dashboard() {
             const allUsers = JSON.parse(uData.value || '[]');
             setUsers(allUsers);
             const currUser = allUsers.find(u => u.id === userId);
+            if (!currUser || currUser.status === 'banned') {
+                localStorage.removeItem('hl_session');
+                window.location.href = '/login';
+                return;
+            }
             setUser(currUser);
 
             const dRes = await fetch('/api/donations');
@@ -251,7 +255,7 @@ export default function Dashboard() {
 
     const myXp = topUsers.find(u => u.id === user.id)?.xp || 0;
     const myTier = myXp > 2000 ? 'Platinum' : myXp > 500 ? 'Gold' : 'Silver';
-    const effectiveRole = previewRole || user.role;
+    const effectiveRole = user.role;
 
     return (
         <div className="flex h-screen bg-bg text-white font-sans overflow-hidden">
@@ -328,34 +332,19 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3">
                         <h2 className="text-xl font-bold flex items-center gap-2">Welcome, {user.name}</h2>
                         <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30 font-bold uppercase tracking-wider">
-                            {effectiveRole}
+                            {user.role}
                         </span>
                     </div>
 
-                    {/* Role Preview Switcher Pills */}
-                    <div className="flex items-center gap-1.5 bg-bg/90 border border-border p-1 rounded-2xl text-xs shadow-inner">
-                        <span className="text-[10px] text-gray-500 uppercase px-2 font-bold hidden sm:inline">Role View:</span>
-                        {[
-                            { id: 'donor', label: '🎁 Donor UI' },
-                            { id: 'volunteer', label: '🏃 Volunteer UI' },
-                            { id: 'ngo', label: '🤝 NGO UI' },
-                            { id: 'admin', label: '👑 Admin' }
-                        ].map(r => (
-                            <button
-                                key={r.id}
-                                onClick={() => {
-                                    setPreviewRole(r.id);
-                                    setActiveTab(r.id === 'admin' ? 'dispatch' : 'dashboard');
-                                }}
-                                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
-                                    effectiveRole === r.id
-                                        ? 'bg-primary text-bg shadow-sm'
-                                        : 'text-gray-400 hover:text-white hover:bg-surface-hover'
-                                }`}
-                            >
-                                {r.label}
-                            </button>
-                        ))}
+                    {/* Official Role Lock Indicator */}
+                    <div className="flex items-center gap-2 bg-bg/90 border border-border px-3.5 py-1.5 rounded-2xl text-xs shadow-inner">
+                        <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
+                            {user.role === 'donor' && '🎁 Donor Portal'}
+                            {user.role === 'volunteer' && '🏃 Courier Dispatch'}
+                            {user.role === 'ngo' && '🤝 Shelter Operations'}
+                            {user.role === 'admin' && '👑 System Administrator'}
+                        </span>
                     </div>
 
                     <div className="flex items-center gap-6">
