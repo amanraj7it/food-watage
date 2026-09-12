@@ -7,6 +7,10 @@ import {
     Share2, Shield, ThermometerSnowflake, Activity, FileKey
 } from 'lucide-react';
 
+import DonorPage from './DonorPage';
+import VolunteerPage from './VolunteerPage';
+import NgoPage from './NgoPage';
+
 export default function Dashboard() {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
@@ -14,6 +18,7 @@ export default function Dashboard() {
     const [donations, setDonations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
+    const [previewRole, setPreviewRole] = useState(null);
 
     // New donation form state
     const [foodType, setFoodType] = useState('Cooked Food Packets');
@@ -246,6 +251,7 @@ export default function Dashboard() {
 
     const myXp = topUsers.find(u => u.id === user.id)?.xp || 0;
     const myTier = myXp > 2000 ? 'Platinum' : myXp > 500 ? 'Gold' : 'Silver';
+    const effectiveRole = previewRole || user.role;
 
     return (
         <div className="flex h-screen bg-bg text-white font-sans overflow-hidden">
@@ -275,11 +281,26 @@ export default function Dashboard() {
                 </div>
 
                 <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto">
-                    <NavItem icon={<LayoutDashboard size={20} />} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                    {user.role === 'donor' && <NavItem icon={<Gift size={20} />} label="Donate Food" active={activeTab === 'donate'} onClick={() => setActiveTab('donate')} />}
-                    {user.role === 'ngo' && <NavItem icon={<Search size={20} />} label="Find Food" active={activeTab === 'find'} onClick={() => setActiveTab('find')} />}
-                    {user.role === 'volunteer' && <NavItem icon={<Truck size={20} />} label="Deliveries" active={activeTab === 'deliveries'} onClick={() => setActiveTab('deliveries')} />}
-                    {user.role === 'admin' && (
+                    <NavItem
+                        icon={<LayoutDashboard size={20} />}
+                        label={effectiveRole === 'donor' ? 'Donor Hub' : effectiveRole === 'volunteer' ? 'Courier Dispatch' : effectiveRole === 'ngo' ? 'Shelter Operations' : 'Dashboard'}
+                        active={activeTab === 'dashboard'}
+                        onClick={() => setActiveTab('dashboard')}
+                    />
+
+                    {effectiveRole === 'donor' && (
+                        <NavItem icon={<Gift size={20} />} label="Donate Surplus" active={activeTab === 'donate'} onClick={() => setActiveTab('donate')} />
+                    )}
+
+                    {effectiveRole === 'ngo' && (
+                        <NavItem icon={<Search size={20} />} label="Find Food" active={activeTab === 'find'} onClick={() => setActiveTab('find')} />
+                    )}
+
+                    {effectiveRole === 'volunteer' && (
+                        <NavItem icon={<Truck size={20} />} label="Deliveries" active={activeTab === 'deliveries'} onClick={() => setActiveTab('deliveries')} />
+                    )}
+
+                    {effectiveRole === 'admin' && (
                         <>
                             <NavItem icon={<Activity size={20} />} label="Live Dispatch" active={activeTab === 'dispatch'} onClick={() => setActiveTab('dispatch')} />
                             <NavItem icon={<Users size={20} />} label="Manage Users" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
@@ -303,8 +324,40 @@ export default function Dashboard() {
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
 
-                <header className="bg-surface/50 backdrop-blur-md px-8 py-5 flex justify-between items-center z-10 border-b border-border">
-                    <div><h2 className="text-xl font-bold flex items-center gap-2">Welcome, {user.name}</h2></div>
+                <header className="bg-surface/50 backdrop-blur-md px-6 md:px-8 py-4 flex flex-wrap justify-between items-center z-10 border-b border-border gap-4">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-bold flex items-center gap-2">Welcome, {user.name}</h2>
+                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30 font-bold uppercase tracking-wider">
+                            {effectiveRole}
+                        </span>
+                    </div>
+
+                    {/* Role Preview Switcher Pills */}
+                    <div className="flex items-center gap-1.5 bg-bg/90 border border-border p-1 rounded-2xl text-xs shadow-inner">
+                        <span className="text-[10px] text-gray-500 uppercase px-2 font-bold hidden sm:inline">Role View:</span>
+                        {[
+                            { id: 'donor', label: '🎁 Donor UI' },
+                            { id: 'volunteer', label: '🏃 Volunteer UI' },
+                            { id: 'ngo', label: '🤝 NGO UI' },
+                            { id: 'admin', label: '👑 Admin' }
+                        ].map(r => (
+                            <button
+                                key={r.id}
+                                onClick={() => {
+                                    setPreviewRole(r.id);
+                                    setActiveTab(r.id === 'admin' ? 'dispatch' : 'dashboard');
+                                }}
+                                className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                                    effectiveRole === r.id
+                                        ? 'bg-primary text-bg shadow-sm'
+                                        : 'text-gray-400 hover:text-white hover:bg-surface-hover'
+                                }`}
+                            >
+                                {r.label}
+                            </button>
+                        ))}
+                    </div>
+
                     <div className="flex items-center gap-6">
                         <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-lg border border-primary/30">{user.name.charAt(0)}</div>
                     </div>
@@ -313,125 +366,31 @@ export default function Dashboard() {
                 <div className="flex-1 overflow-y-auto p-4 md:p-8">
                     <div className="max-w-6xl mx-auto space-y-8 pb-20">
 
-                        {/* Dashboard View */}
-                        {activeTab === 'dashboard' && (
+                        {/* Donor Page View (Framer Motion Rich) */}
+                        {(activeTab === 'dashboard' || activeTab === 'donate') && effectiveRole === 'donor' && (
+                            <DonorPage user={user} donations={donations} onSaveDonations={saveDonations} isEmbedded={true} />
+                        )}
+
+                        {/* Volunteer Page View (Framer Motion Rich) */}
+                        {(activeTab === 'dashboard' || activeTab === 'deliveries') && effectiveRole === 'volunteer' && (
+                            <VolunteerPage user={user} donations={donations} onSaveDonations={saveDonations} isEmbedded={true} />
+                        )}
+
+                        {/* NGO Page View (Framer Motion Rich) */}
+                        {(activeTab === 'dashboard' || activeTab === 'find') && effectiveRole === 'ngo' && (
+                            <NgoPage user={user} donations={donations} onSaveDonations={saveDonations} isEmbedded={true} />
+                        )}
+
+                        {/* Admin Overview (shown when admin is active) */}
+                        {activeTab === 'dashboard' && effectiveRole === 'admin' && (
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-
-                                {/* Highlights */}
-                                {expiringSoon.length > 0 && user.role === 'ngo' && (
-                                    <div className="bg-gradient-to-r from-red-950/80 to-bg border border-red-900/50 rounded-2xl p-6 relative overflow-hidden shadow-[0_0_40px_rgba(220,38,38,0.15)]">
-                                        <ShieldAlert size={120} className="absolute -right-10 -bottom-10 text-red-600/10" />
-                                        <h3 className="font-bold text-red-500 flex items-center gap-2 mb-4"><Activity size={18} className="animate-pulse" /> URGENT: High Priority Rescue (Expiring Soon)</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-                                            {expiringSoon.map(d => (
-                                                <div key={d.id} className="bg-surface/80 p-4 rounded-xl flex justify-between items-center border border-red-900/40 backdrop-blur-sm">
-                                                    <div><p className="font-bold">{d.foodName}</p><p className="text-xs text-gray-400">Expires: {new Date(d.expiryAt).toLocaleTimeString()}</p></div>
-                                                    <button onClick={() => acceptDonation(d.id)} className="bg-red-600 hover:bg-red-500 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-lg transition">Rescue Now</button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {user.role !== 'admin' && <StatCard value={donations.filter(d => d.status === 'available').length} label="Available" icon={<Gift />} />}
-                                    {user.role === 'ngo' && <StatCard value={Math.round(mealsReceived)} label="Meals Received" icon={<ChefHat />} />}
-                                    {user.role === 'volunteer' && <StatCard value={donations.filter(d => d.volunteerId === user.id && d.status === 'delivered').length} label="Completed" icon={<CheckCircle />} />}
-                                    {user.role === 'donor' && <StatCard value={Math.round(donations.filter(d => d.donorId === user.id).reduce((sum, d) => sum + d.quantityKg, 0))} label="Total Kg" icon={<Leaf />} />}
+                                    <StatCard value={donations.filter(d => d.status === 'available').length} label="Available Surpluses" icon={<Gift />} />
+                                    <StatCard value={Math.round(mealsReceived)} label="Meals Received" icon={<ChefHat />} />
+                                    <StatCard value={donations.filter(d => d.status === 'delivered').length} label="Completed Rescues" icon={<CheckCircle />} />
                                     <StatCard value={totalCo2Saved.toFixed(1) + ' Kg'} label="Global CO₂ Saved" icon={<BarChart3 />} glow />
                                 </div>
-
-                                {/* Feeds */}
-                                {user.role === 'ngo' && <FeedList title="Nearby Available Surpluses" donations={donations.filter(d => d.status === 'available')} action={acceptDonation} actionText="Accept" aiRecipeGenerator={setAiRecipeFor} />}
-                                {user.role === 'volunteer' && <DeliveryProgressList title="Live Active Deliveries" donations={donations.filter(d => d.volunteerId === user.id && d.status !== 'delivered')} advanceDelivery={advanceDeliveryStatus} />}
-                                {user.role === 'donor' && <FeedList title="Your Active Listings" donations={donations.filter(d => d.donorId === user.id && d.status !== 'delivered')} noAction />}
-                            </motion.div>
-                        )}
-
-                        {/* Donate Food View with Voice AI */}
-                        {activeTab === 'donate' && user.role === 'donor' && (
-                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl bg-surface p-8 rounded-2xl border border-border relative overflow-hidden">
-                                <div className="flex justify-between items-center mb-8 border-b border-border pb-6">
-                                    <h3 className="text-2xl font-display font-bold flex items-center gap-3"><Gift className="text-primary" /> Post Surplus</h3>
-                                    <button
-                                        onClick={simulateVoiceInput} disabled={isListening}
-                                        className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-full transition-all border ${isListening ? 'bg-primary/20 text-primary border-primary animate-pulse' : 'bg-surface-hover border-border text-gray-400 hover:text-white hover:border-gray-500'}`}
-                                    >
-                                        <Mic size={16} /> {isListening ? 'Listening...' : 'Voice Assist AI'}
-                                    </button>
-                                </div>
-
-                                <form onSubmit={handleCreateDonation} className="space-y-6">
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Food Type</label>
-                                            <select value={foodType} onChange={e => setFoodType(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 outline-none focus:border-primary transition font-medium">
-                                                <option>Cooked Food Packets</option><option>Fresh Vegetables</option><option>Packaged Groceries</option><option>Baked Goods</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Quantity (Kg)</label>
-                                            <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 outline-none focus:border-primary font-medium" />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Expiry Date & Time</label>
-                                            <input type="datetime-local" value={expiry} onChange={e => setExpiry(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 outline-none focus:border-primary [color-scheme:dark]" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Food Status</label>
-                                            <select value={foodStatus} onChange={e => setFoodStatus(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 outline-none focus:border-primary font-medium">
-                                                <option>Fresh</option><option>Leftover but Safe</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Pickup Address</label>
-                                        <div className="relative">
-                                            <input type="text" value={pickupLocation} onChange={e => setPickupLocation(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 pl-10 outline-none focus:border-primary font-medium" />
-                                            <MapPin className="absolute left-3 top-3.5 text-gray-500 w-5 h-5" />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Notes</label>
-                                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-bg border border-border rounded-xl p-3 outline-none focus:border-primary font-medium" rows="2"></textarea>
-                                    </div>
-                                    <button type="submit" className="w-full bg-primary hover:bg-primary-light text-bg font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] text-lg">Initialize Smart Listing</button>
-                                </form>
-                            </motion.div>
-                        )}
-
-                        {/* AI Scrap Saver Modal (Renders in-place inside Find Food) */}
-                        {activeTab === 'find' && user.role === 'ngo' && (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} >
-                                <FeedList title="Browse Global Surplus" donations={donations.filter(d => d.status === 'available')} action={acceptDonation} actionText="Accept" aiRecipeGenerator={setAiRecipeFor} />
-
-                                <AnimatePresence>
-                                    {aiRecipeFor && (
-                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-4 bg-gradient-to-r from-bg to-surface-hover border border-border rounded-2xl p-6 relative overflow-hidden">
-                                            <ChefHat className="absolute right-4 bottom-4 w-32 h-32 text-gray-800 opacity-20 pointer-events-none" />
-                                            <h4 className="font-bold flex items-center gap-2 text-emerald-400 mb-2"><Activity size={16} /> AI Scrap-Saver Active</h4>
-                                            <p className="text-gray-400 text-sm mb-4">Generating optimized community recipe for: <strong className="text-white">{aiRecipeFor.foodName} ({aiRecipeFor.quantityKg} Kg)</strong></p>
-                                            <div className="bg-bg border border-border p-4 rounded-xl font-mono text-sm text-gray-300 leading-relaxed shadow-inner">
-                                                {aiRecipeFor.foodType.includes('Cooked') ?
-                                                    "RECIPE: 'Repurposed Community Stew'\n1. Re-simmer all contents safely to 165°F (74°C) internal temp.\n2. Add fresh spinach/veggies if on hand for density.\n3. Portion into 250g servings.\nYIELD: ~" + (aiRecipeFor.quantityKg * 4) + " Portions."
-                                                    :
-                                                    "RECIPE: 'Bulk Veggie Curry'\n1. Dice all raw ingredients to uniform sizes.\n2. Sauté with base spices (turmeric, cumin, garlic).\n3. Simmer until tender. Serve with bulk rice.\nYIELD: ~" + (aiRecipeFor.quantityKg * 3.5) + " Portions."
-                                                }
-                                            </div>
-                                            <button onClick={() => setAiRecipeFor(null)} className="mt-4 text-xs font-bold text-gray-500 hover:text-white uppercase tracking-widest transition">Close AI View</button>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </motion.div>
-                        )}
-
-                        {/* Deliveries View */}
-                        {activeTab === 'deliveries' && user.role === 'volunteer' && (
-                            <motion.div layout className="space-y-6">
-                                <FeedList title="Pending Logistics Requests" donations={donations.filter(d => d.status === 'accepted')} action={volunteerAccept} actionText="Accept Route" />
-                                <DeliveryProgressList title="Live Fleet Monitor" donations={donations.filter(d => d.volunteerId === user.id && d.status !== 'delivered')} advanceDelivery={advanceDeliveryStatus} />
+                                <FeedList title="Global Live Surplus Feed" donations={donations.filter(d => d.status === 'available')} action={acceptDonation} actionText="Dispatch" />
                             </motion.div>
                         )}
 
