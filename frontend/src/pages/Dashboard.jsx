@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Leaf, LayoutDashboard, Gift, MapPin, Truck, History, LogOut, CheckCircle, Search,
@@ -10,13 +10,39 @@ import {
 import DonorPage from './DonorPage';
 import VolunteerPage from './VolunteerPage';
 import NgoPage from './NgoPage';
+import { initialUsers, initialDonations } from '../data/defaultData';
 
-export default function Dashboard() {
-    const navigate = useNavigate();
-    const [user, setUser] = useState(null);
-    const [users, setUsers] = useState([]);
-    const [donations, setDonations] = useState([]);
-    const [loading, setLoading] = useState(true);
+export default function Dashboard({ roleOverride }) {
+    const location = useLocation();
+
+    // Determine target role from prop or route (/ngo, /donor, /volunteer)
+    const targetRouteRole = roleOverride || (
+        location.pathname.startsWith('/ngo') ? 'ngo' :
+            location.pathname.startsWith('/donor') ? 'donor' :
+                location.pathname.startsWith('/volunteer') ? 'volunteer' : null
+    );
+
+    const getDemoUser = (role) => {
+        if (role === 'ngo') return initialUsers.find(u => u.role === 'ngo') || initialUsers[2];
+        if (role === 'donor') return initialUsers.find(u => u.role === 'donor') || initialUsers[1];
+        if (role === 'volunteer') return initialUsers.find(u => u.role === 'volunteer') || initialUsers[3];
+        return initialUsers[0];
+    };
+
+    const [user, setUser] = useState(() => {
+        if (targetRouteRole) return getDemoUser(targetRouteRole);
+        try {
+            const s = localStorage.getItem('hl_session');
+            if (s) {
+                const parsed = JSON.parse(s);
+                return initialUsers.find(u => u.id === parsed.userId) || parsed;
+            }
+        } catch (e) { }
+        return getDemoUser('ngo');
+    });
+    const [users, setUsers] = useState(initialUsers);
+    const [donations, setDonations] = useState(initialDonations);
+    const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('dashboard');
 
     // New donation form state
@@ -36,13 +62,27 @@ export default function Dashboard() {
     const [showEasterEgg, setShowEasterEgg] = useState(false);
 
     useEffect(() => {
-        const s = localStorage.getItem('hl_session');
-        if (!s) {
-            window.location.href = '/login';
-            return;
+        let sessionUser = null;
+        try {
+            const s = localStorage.getItem('hl_session');
+            if (s) sessionUser = JSON.parse(s);
+        } catch (e) { }
+
+        if (targetRouteRole) {
+            if (sessionUser && (sessionUser.role === targetRouteRole || sessionUser.role === 'admin')) {
+                fetchData(sessionUser.userId, targetRouteRole);
+            } else {
+                const demo = getDemoUser(targetRouteRole);
+                setUser(demo);
+                fetchData(demo.id, targetRouteRole);
+            }
+        } else if (sessionUser) {
+            fetchData(sessionUser.userId, sessionUser.role);
+        } else {
+            const demo = getDemoUser('ngo');
+            setUser(demo);
+            fetchData(demo.id, 'ngo');
         }
-        const parsed = JSON.parse(s);
-        fetchData(parsed.userId);
 
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
@@ -61,50 +101,59 @@ export default function Dashboard() {
         };
         window.addEventListener('keydown', kd);
         return () => window.removeEventListener('keydown', kd);
-    }, [navigate]);
+    }, [location.pathname, targetRouteRole]);
 
     useEffect(() => {
-        if (!loading && user && (user.role === 'admin' || user.role === 'ngo')) {
+        if (user && (user.role === 'admin' || user.role === 'ngo')) {
             const avail = donations.filter(d => d.status === 'available').length;
             if (avail > 0 && 'Notification' in window && Notification.permission === 'granted') {
                 new Notification('Harvest Network Alert', { body: `There are ${avail} new food donations pending rescue!` });
             }
         }
-    }, [loading]);
+    }, [user, donations]);
 
-    const fetchData = async (userId) => {
+    const fetchData = async (userId, fallbackRole) => {
         try {
             const uRes = await fetch('/api/users');
-            const uData = await uRes.json();
-            const allUsers = JSON.parse(uData.value || '[]');
-            setUsers(allUsers);
-            const currUser = allUsers.find(u => u.id === userId);
-            if (!currUser || currUser.status === 'banned') {
-                localStorage.removeItem('hl_session');
-                window.location.href = '/login';
-                return;
+            if (uRes.ok) {
+                const uData = await uRes.json();
+                const allUsers = JSON.parse(uData.value || '[]');
+                if (Array.isArray(allUsers) && allUsers.length > 0) {
+                    setUsers(allUsers);
+                    const currUser = allUsers.find(u => u.id === userId);
+                    if (currUser && currUser.status !== 'banned') {
+                        setUser(currUser);
+                    } else if (fallbackRole) {
+                        setUser(getDemoUser(fallbackRole));
+                    }
+                }
             }
-            setUser(currUser);
-
-            const dRes = await fetch('/api/donations');
-            const dData = await dRes.json();
-            setDonations(JSON.parse(dData.value || '[]'));
         } catch (e) {
-            console.error(e);
+            if (fallbackRole && !user) setUser(getDemoUser(fallbackRole));
         }
-        setLoading(false);
+
+        try {
+            const dRes = await fetch('/api/donations');
+            if (dRes.ok) {
+                const dData = await dRes.json();
+                const parsedDonations = JSON.parse(dData.value || '[]');
+                if (Array.isArray(parsedDonations) && parsedDonations.length > 0) {
+                    setDonations(parsedDonations);
+                }
+            }
+        } catch (e) { }
     };
 
     const saveDonations = async (newDonations) => {
+        setDonations(newDonations);
         try {
             await fetch('/api/donations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ value: JSON.stringify(newDonations) })
             });
-            setDonations(newDonations);
         } catch (e) {
-            console.error('Failed to save donations');
+            console.warn('Backend server offline, state saved in session.');
         }
     };
 
@@ -316,12 +365,13 @@ export default function Dashboard() {
                 </nav>
 
                 <div className="p-4 border-t border-border">
-                    <div className="bg-bg border border-border rounded-xl p-3 mb-4">
+                    <div className="bg-bg border border-border rounded-xl p-3 mb-3">
                         <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Your Impact Level</div>
                         <div className="font-bold flex items-center gap-2 text-sm"><Shield className={`w-4 h-4 ${myTier === 'Platinum' ? 'text-blue-400' : myTier === 'Gold' ? 'text-amber-400' : 'text-gray-400'}`} /> {myTier} Tier</div>
                         <div className="mt-2 w-full bg-surface-hover h-1.5 rounded-full overflow-hidden"><div className="bg-primary h-full" style={{ width: `${(myXp % 1000) / 10}%` }}></div></div>
                     </div>
-                    <button onClick={handleLogout} className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors w-full p-2"><LogOut size={20} /><span className="font-medium">Sign Out</span></button>
+
+                    <button onClick={handleLogout} className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors w-full p-2 cursor-pointer"><LogOut size={20} /><span className="font-medium">Sign Out</span></button>
                 </div>
             </aside>
 

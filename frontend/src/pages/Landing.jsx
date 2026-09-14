@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -8,6 +8,15 @@ import {
 import AnimatedBackground from '../components/AnimatedBackground';
 
 export default function Landing() {
+    const [session, setSession] = useState(null);
+
+    useEffect(() => {
+        try {
+            const s = localStorage.getItem('hl_session');
+            if (s) setSession(JSON.parse(s));
+        } catch (e) {}
+    }, []);
+
     const liveRescues = [
         "⚡ Just now: The Grand Bakery donated 45kg fresh breads to Hope Shelter",
         "🌱 8 mins ago: Volunteer Bhavya completed pickup at Metro Organics",
@@ -44,7 +53,6 @@ export default function Landing() {
                         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
                             <a href="#how-it-works" className="hover:text-emerald-400 transition-colors">How It Works</a>
                             <a href="#features" className="hover:text-emerald-400 transition-colors">AI Features</a>
-                            <a href="#impact" className="hover:text-emerald-400 transition-colors">Impact Analytics</a>
                             <a href="#join" className="hover:text-emerald-400 transition-colors">Join Movement</a>
                         </nav>
 
@@ -54,14 +62,34 @@ export default function Landing() {
                                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                                 <span>Network Online • 42 Nodes</span>
                             </div>
-                            <Link
-                                to="/login"
-                                className="relative group overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-[#07090E] px-6 py-2.5 rounded-xl font-bold text-sm shadow-[0_0_25px_rgba(16,185,129,0.35)] hover:shadow-[0_0_35px_rgba(16,185,129,0.55)] transition-all transform hover:-translate-y-0.5 active:translate-y-0"
-                            >
-                                <span className="relative z-10 flex items-center gap-1.5">
-                                    Sign In <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                                </span>
-                            </Link>
+                            {session ? (
+                                <div className="flex items-center gap-2">
+                                    <Link
+                                        to={session.role === 'donor' ? '/donor' : session.role === 'volunteer' ? '/volunteer' : session.role === 'ngo' ? '/ngo' : '/dashboard'}
+                                        className="relative group overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-[#07090E] px-5 py-2 rounded-xl font-bold text-sm shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all flex items-center gap-1.5"
+                                    >
+                                        Go to Portal <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                                    </Link>
+                                    <button
+                                        onClick={() => {
+                                            localStorage.removeItem('hl_session');
+                                            setSession(null);
+                                        }}
+                                        className="text-xs font-semibold text-gray-400 hover:text-white px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                                    >
+                                        Sign Out
+                                    </button>
+                                </div>
+                            ) : (
+                                <Link
+                                    to="/login"
+                                    className="relative group overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-[#07090E] px-6 py-2.5 rounded-xl font-bold text-sm shadow-[0_0_25px_rgba(16,185,129,0.35)] hover:shadow-[0_0_35px_rgba(16,185,129,0.55)] transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                                >
+                                    <span className="relative z-10 flex items-center gap-1.5">
+                                        Sign In <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                                    </span>
+                                </Link>
+                            )}
                         </div>
                     </div>
                 </header>

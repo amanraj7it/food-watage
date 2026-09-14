@@ -5,10 +5,20 @@ import {
     ThermometerSnowflake, QrCode, AlertCircle, Compass, Zap,
     Award, ArrowRight, Activity, Phone, ChevronRight, Check
 } from 'lucide-react';
+import { initialUsers, initialDonations } from '../data/defaultData';
 
 export default function VolunteerPage({ user, donations = [], onSaveDonations, isEmbedded = false }) {
-    const [currentUser, setCurrentUser] = useState(user || null);
-    const [localDonations, setLocalDonations] = useState(donations);
+    const defaultVolunteerUser = initialUsers.find(u => u.role === 'volunteer') || {
+        id: 'msvph9xe',
+        name: 'Bhakti Tyagi',
+        email: 'amanbrilliant2@gmail.com',
+        role: 'volunteer'
+    };
+
+    const [currentUser, setCurrentUser] = useState(user || defaultVolunteerUser);
+    const [localDonations, setLocalDonations] = useState(
+        donations && donations.length > 0 ? donations : initialDonations
+    );
     const [isOnline, setIsOnline] = useState(true);
     const [activeTab, setActiveTab] = useState('missions'); // 'missions' | 'radar' | 'stats'
     const [activeQrModal, setActiveQrModal] = useState(null);
@@ -31,34 +41,25 @@ export default function VolunteerPage({ user, donations = [], onSaveDonations, i
     useEffect(() => {
         if (!user) {
             const s = localStorage.getItem('hl_session');
-            if (!s) {
-                window.location.href = '/login';
-                return;
-            }
-            try {
-                const parsed = JSON.parse(s);
-                if (parsed.role && parsed.role !== 'volunteer' && parsed.role !== 'admin') {
-                    window.location.href = '/dashboard';
-                    return;
-                }
-                fetch('/api/users')
-                    .then(r => r.json())
-                    .then(d => {
-                        const allUsers = JSON.parse(d.value || '[]');
-                        const found = allUsers.find(u => u.id === parsed.userId);
-                        if (found) {
-                            if (found.role !== 'volunteer' && found.role !== 'admin') {
-                                window.location.href = '/dashboard';
-                                return;
+            if (s) {
+                try {
+                    const parsed = JSON.parse(s);
+                    if (parsed.role && parsed.role === 'volunteer') {
+                        setCurrentUser(parsed);
+                    }
+                    fetch('/api/users')
+                        .then(r => r.json())
+                        .then(d => {
+                            const allUsers = JSON.parse(d.value || '[]');
+                            const found = allUsers.find(u => u.id === parsed.userId);
+                            if (found && (found.role === 'volunteer' || found.role === 'admin')) {
+                                setCurrentUser(found);
                             }
-                            setCurrentUser(found);
-                        } else {
-                            window.location.href = '/login';
-                        }
-                    })
-                    .catch(() => { window.location.href = '/login'; });
-            } catch (e) {
-                window.location.href = '/login';
+                        })
+                        .catch(() => {});
+                } catch (e) {}
+            } else {
+                setCurrentUser(defaultVolunteerUser);
             }
         } else {
             setCurrentUser(user);
@@ -66,12 +67,17 @@ export default function VolunteerPage({ user, donations = [], onSaveDonations, i
     }, [user]);
 
     useEffect(() => {
-        if (donations.length > 0) {
+        if (donations && donations.length > 0) {
             setLocalDonations(donations);
         } else {
             fetch('/api/donations')
                 .then(r => r.json())
-                .then(d => setLocalDonations(JSON.parse(d.value || '[]')))
+                .then(d => {
+                    const parsed = JSON.parse(d.value || '[]');
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setLocalDonations(parsed);
+                    }
+                })
                 .catch(() => {});
         }
     }, [donations]);

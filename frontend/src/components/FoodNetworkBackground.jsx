@@ -4,7 +4,7 @@ export default function FoodNetworkBackground({ canvasRef }) {
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d', { alpha: false });
+        const ctx = canvas.getContext('2d', { alpha: true });
         let w, h;
         let animationFrameId;
 
@@ -31,7 +31,8 @@ export default function FoodNetworkBackground({ canvasRef }) {
         const packets = [];
 
         const draw = () => {
-            ctx.fillStyle = '#0a0e17';
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = 'rgba(10, 14, 23, 0.4)';
             ctx.fillRect(0, 0, w, h);
 
             nodes.forEach(n => {

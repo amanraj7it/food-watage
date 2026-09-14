@@ -5,10 +5,20 @@ import {
     CheckCircle, Star, Sparkles, Filter, Users, ArrowRight,
     Utensils, AlertTriangle, Check, BookOpen, ThumbsUp
 } from 'lucide-react';
+import { initialUsers, initialDonations } from '../data/defaultData';
 
 export default function NgoPage({ user, donations = [], onSaveDonations, isEmbedded = false }) {
-    const [currentUser, setCurrentUser] = useState(user || null);
-    const [localDonations, setLocalDonations] = useState(donations);
+    const defaultNgoUser = initialUsers.find(u => u.role === 'ngo') || {
+        id: 'msvph9xd',
+        name: 'Aman Enterprises',
+        email: 'amanbrilliant1@gmail.com',
+        role: 'ngo'
+    };
+
+    const [currentUser, setCurrentUser] = useState(user || defaultNgoUser);
+    const [localDonations, setLocalDonations] = useState(
+        donations && donations.length > 0 ? donations : initialDonations
+    );
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [aiRecipeModal, setAiRecipeModal] = useState(null);
@@ -21,34 +31,25 @@ export default function NgoPage({ user, donations = [], onSaveDonations, isEmbed
     useEffect(() => {
         if (!user) {
             const s = localStorage.getItem('hl_session');
-            if (!s) {
-                window.location.href = '/login';
-                return;
-            }
-            try {
-                const parsed = JSON.parse(s);
-                if (parsed.role && parsed.role !== 'ngo' && parsed.role !== 'admin') {
-                    window.location.href = '/dashboard';
-                    return;
-                }
-                fetch('/api/users')
-                    .then(r => r.json())
-                    .then(d => {
-                        const allUsers = JSON.parse(d.value || '[]');
-                        const found = allUsers.find(u => u.id === parsed.userId);
-                        if (found) {
-                            if (found.role !== 'ngo' && found.role !== 'admin') {
-                                window.location.href = '/dashboard';
-                                return;
+            if (s) {
+                try {
+                    const parsed = JSON.parse(s);
+                    if (parsed.role && parsed.role === 'ngo') {
+                        setCurrentUser(parsed);
+                    }
+                    fetch('/api/users')
+                        .then(r => r.json())
+                        .then(d => {
+                            const allUsers = JSON.parse(d.value || '[]');
+                            const found = allUsers.find(u => u.id === parsed.userId);
+                            if (found && (found.role === 'ngo' || found.role === 'admin')) {
+                                setCurrentUser(found);
                             }
-                            setCurrentUser(found);
-                        } else {
-                            window.location.href = '/login';
-                        }
-                    })
-                    .catch(() => { window.location.href = '/login'; });
-            } catch (e) {
-                window.location.href = '/login';
+                        })
+                        .catch(() => {});
+                } catch (e) {}
+            } else {
+                setCurrentUser(defaultNgoUser);
             }
         } else {
             setCurrentUser(user);
@@ -56,12 +57,17 @@ export default function NgoPage({ user, donations = [], onSaveDonations, isEmbed
     }, [user]);
 
     useEffect(() => {
-        if (donations.length > 0) {
+        if (donations && donations.length > 0) {
             setLocalDonations(donations);
         } else {
             fetch('/api/donations')
                 .then(r => r.json())
-                .then(d => setLocalDonations(JSON.parse(d.value || '[]')))
+                .then(d => {
+                    const parsed = JSON.parse(d.value || '[]');
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setLocalDonations(parsed);
+                    }
+                })
                 .catch(() => {});
         }
     }, [donations]);
