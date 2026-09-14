@@ -38,7 +38,7 @@ import socket
 import ssl
 import base64
 
-def send_raw_socket_email(to_email, subject, body_text, smtp_server, smtp_port, sender_email, sender_pass):
+def send_raw_socket_email(to_email, subject, body_text, smtp_server, smtp_port, sender_email, sender_pass, body_html=None):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.settimeout(10)
     client_socket.connect((smtp_server, smtp_port))
@@ -78,10 +78,27 @@ def send_raw_socket_email(to_email, subject, body_text, smtp_server, smtp_port, 
     tls_socket.send(b'DATA\r\n')
     tls_socket.recv(1024)
 
-    msg = (f"Subject: {subject}\r\n"
-           f"From: Harvest Network <{sender_email}>\r\n"
-           f"To: {to_email}\r\n\r\n"
-           f"{body_text}\r\n.\r\n")
+    if body_html:
+        boundary = '----=_HarvestNetworkOtpBoundary'
+        msg = (f"Subject: {subject}\r\n"
+               f"From: Food Wastage Reduction <{sender_email}>\r\n"
+               f"To: {to_email}\r\n"
+               "MIME-Version: 1.0\r\n"
+               f"Content-Type: multipart/alternative; boundary=\"{boundary}\"\r\n\r\n"
+               f"--{boundary}\r\n"
+               "Content-Type: text/plain; charset=UTF-8\r\n"
+               "Content-Transfer-Encoding: 8bit\r\n\r\n"
+               f"{body_text}\r\n\r\n"
+               f"--{boundary}\r\n"
+               "Content-Type: text/html; charset=UTF-8\r\n"
+               "Content-Transfer-Encoding: 8bit\r\n\r\n"
+               f"{body_html}\r\n"
+               f"--{boundary}--\r\n.\r\n")
+    else:
+        msg = (f"Subject: {subject}\r\n"
+               f"From: Harvest Network <{sender_email}>\r\n"
+               f"To: {to_email}\r\n\r\n"
+               f"{body_text}\r\n.\r\n")
     tls_socket.send(msg.encode())
     tls_socket.recv(1024)
 
@@ -122,9 +139,48 @@ def send_otp():
 
     try:
         if sender_pass != 'your_password':
-            subject = 'Harvest Network - Your Verification Code'
-            body = f"Your secure 4-digit verification code is: {otp_code}\n\nThis code will expire in 5 minutes."
-            send_raw_socket_email(email, subject, body, smtp_server, smtp_port, sender_email, sender_pass)
+            subject = 'Food Wastage Reduction - Your Verification Code'
+            body = f"Your Food Wastage Reduction verification code is: {otp_code}\n\nThis code will expire in 10 minutes."
+            body_html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Food Wastage Reduction verification code</title>
+</head>
+<body style="margin:0;background:#f7f5ee;color:#344234;font-family:Arial,Helvetica,sans-serif;">
+    <div style="max-width:640px;margin:0 auto;background:#fffdf8;border:1px solid #d8e2d0;">
+        <div style="padding:24px 32px 20px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:20px;font-weight:700;letter-spacing:-.3px;">
+                <span style="display:inline-block;width:30px;height:30px;line-height:30px;text-align:center;margin-right:8px;border-radius:50%;background:#e3efdf;color:#4c7743;">⌁</span>
+                Food Wastage Reduction
+            </div>
+            <div style="font-size:12px;color:#6d9d5c;">✦ Saving food, one meal at a time</div>
+        </div>
+        <div style="margin:0 32px;height:180px;border-radius:16px;background:#f0dfbc;overflow:hidden;text-align:center;">
+            <div style="font-size:86px;line-height:180px;letter-spacing:8px;">🍎 🥖 🥕 🥦</div>
+        </div>
+        <div style="padding:24px 40px 28px;">
+            <h1 style="margin:0 0 18px;font-size:22px;color:#344234;">Hi Food Saver 👋</h1>
+            <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#71806e;">Here’s your verification code to join the fight against food waste:</p>
+            <div style="padding:18px 16px 16px;border:1px solid #d9e4d3;border-radius:16px;background:#fff;box-shadow:0 5px 14px rgba(71,93,61,.08);text-align:center;">
+                <div style="font-size:30px;font-weight:700;letter-spacing:12px;color:#609050;">{otp_code}</div>
+                <div style="display:inline-block;margin-top:10px;padding:5px 12px;border-radius:14px;background:#f6f1e8;color:#b16b2e;font-size:11px;">⌛ Code expires in 10 minutes</div>
+            </div>
+            <div style="margin-top:18px;padding:12px 14px;border:1px solid #d9e4d3;border-radius:12px;background:#f5f5ed;color:#63705f;font-size:12px;text-align:center;">Every verified account helps rescue ~2kg of food from going to waste 🌍</div>
+            <p style="margin:18px 0 0;font-size:11px;line-height:1.6;color:#8c9688;">Please enter this code on the verification screen to activate your account. Never share this code with anyone.</p>
+            <div style="margin-top:26px;padding:13px;border-radius:24px;background:#6ba253;color:#fff;text-align:center;font-size:13px;font-weight:700;">Go to Website</div>
+        </div>
+        <div style="padding:26px 32px 30px;border-top:1px solid #eee8dc;background:#faf8f1;text-align:center;color:#929a8d;font-size:10px;line-height:1.6;">
+            Didn’t request this? You can safely ignore this email. Someone may have typed your email address by mistake.<br><br>
+            <span style="font-size:18px;color:#536d4d;">◎ &nbsp; ● &nbsp; ◉</span><br><br>
+            Food Wastage Reduction · Chennai, Sholinganallur<br>
+            <u>Unsubscribe</u> &nbsp; · &nbsp; <u>Privacy Policy</u>
+        </div>
+    </div>
+</body>
+</html>'''
+            send_raw_socket_email(email, subject, body, smtp_server, smtp_port, sender_email, sender_pass, body_html)
             print(f"[RAW SOCKET] OTP successfully sent to {email}")
         else:
             print("===============================")
